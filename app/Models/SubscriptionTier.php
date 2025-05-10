@@ -20,10 +20,10 @@ final class SubscriptionTier extends Model
      */
     protected $fillable = [
         'name',
-        'slug',
         'description',
         'price',
-        'duration_in_days',
+        'level',
+        'duration_days',
         'is_active',
         'features',
         'max_courses',
@@ -36,7 +36,8 @@ final class SubscriptionTier extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
-        'duration_in_days' => 'integer',
+        'level' => 'integer',
+        'duration_days' => 'integer',
         'is_active' => 'boolean',
         'features' => 'array',
         'max_courses' => 'integer',
@@ -55,19 +56,22 @@ final class SubscriptionTier extends Model
      */
     public function getActiveSubscribersCountAttribute(): int
     {
-        return $this->userSubscriptions()
-            ->where('status', 'active')
-            ->where('is_active', true)
-            ->where('ends_at', '>', now())
-            ->count();
+        return $this->userSubscriptions()->currentlyActive()->count();
     }
 
     /**
      * Calculate the monthly price.
+     * 
+     * The price is stored in cents, so we divide by 100 to get the dollar value.
+     * Then calculate the monthly price based on duration_days.
      */
-    public function getMonthlyPriceAttribute(): float
+    public function getMonthlyPriceAttribute(): ?float
     {
-        return $this->price * 30 / $this->duration_in_days;
+        if ($this->duration_days > 0) {
+            // Convert from cents to dollars and calculate monthly price
+            return (($this->price / 100) / $this->duration_days) * 30;
+        }
+        return null;
     }
 
     /**

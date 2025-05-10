@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Category;
+use App\Models\Subject;
+use App\Models\GradeLevel;
+use App\Models\Quiz;
+use App\Models\Assignment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,7 +43,21 @@ final class Course extends Model
         'is_published',
         'published_at',
         'subscription_required',
+        'required_subscription_tier_id',
         'position',
+        'category_id',
+        'subject_id',
+        'grade_level_id',
+        'instructor_info',
+        'is_recommended',
+        'allow_certificate',
+        'certificate_template_id',
+        'enable_coupon',
+        'sale_price',
+        'sale_start_date',
+        'sale_end_date',
+        'enable_bulk_purchase',
+        'enable_gift_option'
     ];
 
     /**
@@ -57,6 +76,14 @@ final class Course extends Model
         'subscription_required' => 'boolean',
         'position' => 'integer',
         'duration_in_minutes' => 'integer',
+        'is_recommended' => 'boolean',
+        'allow_certificate' => 'boolean',
+        'enable_coupon' => 'boolean',
+        'sale_price' => 'decimal:2',
+        'sale_start_date' => 'datetime',
+        'sale_end_date' => 'datetime',
+        'enable_bulk_purchase' => 'boolean',
+        'enable_gift_option' => 'boolean'
     ];
 
     /**
@@ -68,11 +95,59 @@ final class Course extends Model
     }
 
     /**
+     * Get the subscription tier required for this course.
+     */
+    public function requiredSubscriptionTier(): BelongsTo
+    {
+        return $this->belongsTo(SubscriptionTier::class, 'required_subscription_tier_id');
+    }
+
+    /**
+     * Get the category that owns the course.
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * Get the subject that owns the course.
+     */
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
+    }
+
+    /**
+     * Get the grade level that owns the course.
+     */
+    public function gradeLevel(): BelongsTo
+    {
+        return $this->belongsTo(GradeLevel::class);
+    }
+
+    /**
      * Get the lessons for the course.
      */
     public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class);
+    }
+
+    /**
+     * Get the quizzes for the course.
+     */
+    public function quizzes(): HasMany
+    {
+        return $this->hasMany(Quiz::class);
+    }
+
+    /**
+     * Get the assignments for the course.
+     */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(Assignment::class);
     }
 
     /**

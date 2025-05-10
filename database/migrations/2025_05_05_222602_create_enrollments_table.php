@@ -21,6 +21,10 @@ return new class extends Migration
             $table->timestamp('completed_at')->nullable();
             $table->decimal('progress', 5, 2)->default(0.00)->comment('Overall course progress percentage');
             $table->enum('access_type', ['subscription', 'purchase'])->default('subscription');
+            $table->enum('status', ['active', 'completed', 'restricted_tier', 'restricted_limit'])
+                  ->default('active')
+                  ->comment('Current status of the enrollment');
+            $table->index('status');
             $table->foreignId('course_purchase_id')->nullable();
             $table->timestamps();
             $table->softDeletes();

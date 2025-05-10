@@ -25,18 +25,100 @@ return new class extends Migration
             $table->string('name')->unique();
             $table->string('slug')->unique();
             $table->text('description')->nullable();
+            $table->string('icon_path')->nullable();
+            $table->string('color_code')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->integer('position')->default(0);
+            $table->string('curriculum_code')->nullable();
             $table->timestamps();
         });
 
         // Seed subjects
         DB::table('subjects')->insert([
-            ['name' => 'Mathematics', 'slug' => 'mathematics', 'description' => 'Study of numbers, quantities, and shapes', 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'Physics', 'slug' => 'physics', 'description' => 'Study of matter, energy, and the interaction between them', 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'Chemistry', 'slug' => 'chemistry', 'description' => 'Study of substances, their properties, and reactions', 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'Biology', 'slug' => 'biology', 'description' => 'Study of living organisms', 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'English', 'slug' => 'english', 'description' => 'Study of the English language', 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'History', 'slug' => 'history', 'description' => 'Study of past events', 'created_at' => now(), 'updated_at' => now()],
-            ['name' => 'Geography', 'slug' => 'geography', 'description' => 'Study of places and relationships between people and their environments', 'created_at' => now(), 'updated_at' => now()],
+            [
+                'name' => 'Mathematics', 
+                'slug' => 'mathematics', 
+                'description' => 'Study of numbers, quantities, and shapes', 
+                'icon_path' => null,
+                'color_code' => '#4287f5',
+                'is_active' => true,
+                'position' => 1,
+                'curriculum_code' => 'M1',
+                'created_at' => now(), 
+                'updated_at' => now()
+            ],
+            [
+                'name' => 'Physics', 
+                'slug' => 'physics', 
+                'description' => 'Study of matter, energy, and the interaction between them', 
+                'icon_path' => null,
+                'color_code' => '#f54242',
+                'is_active' => true,
+                'position' => 2,
+                'curriculum_code' => 'P1',
+                'created_at' => now(), 
+                'updated_at' => now()
+            ],
+            [
+                'name' => 'Chemistry', 
+                'slug' => 'chemistry', 
+                'description' => 'Study of substances, their properties, and reactions', 
+                'icon_path' => null,
+                'color_code' => '#42f56f',
+                'is_active' => true,
+                'position' => 3,
+                'curriculum_code' => 'C1',
+                'created_at' => now(), 
+                'updated_at' => now()
+            ],
+            [
+                'name' => 'Biology', 
+                'slug' => 'biology', 
+                'description' => 'Study of living organisms', 
+                'icon_path' => null,
+                'color_code' => '#f5ce42',
+                'is_active' => true,
+                'position' => 4,
+                'curriculum_code' => 'B1',
+                'created_at' => now(), 
+                'updated_at' => now()
+            ],
+            [
+                'name' => 'English', 
+                'slug' => 'english', 
+                'description' => 'Study of the English language', 
+                'icon_path' => null,
+                'color_code' => '#42f5f2',
+                'is_active' => true,
+                'position' => 5,
+                'curriculum_code' => 'E1',
+                'created_at' => now(), 
+                'updated_at' => now()
+            ],
+            [
+                'name' => 'History', 
+                'slug' => 'history', 
+                'description' => 'Study of past events', 
+                'icon_path' => null,
+                'color_code' => '#8942f5',
+                'is_active' => true,
+                'position' => 6,
+                'curriculum_code' => 'H1',
+                'created_at' => now(), 
+                'updated_at' => now()
+            ],
+            [
+                'name' => 'Geography', 
+                'slug' => 'geography', 
+                'description' => 'Study of places and relationships between people and their environments', 
+                'icon_path' => null,
+                'color_code' => '#f542d4',
+                'is_active' => true,
+                'position' => 7,
+                'curriculum_code' => 'G1',
+                'created_at' => now(), 
+                'updated_at' => now()
+            ],
         ]);
     }
 

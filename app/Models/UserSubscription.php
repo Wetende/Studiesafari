@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 final class UserSubscription extends Model
@@ -22,12 +23,12 @@ final class UserSubscription extends Model
     protected $fillable = [
         'user_id',
         'subscription_tier_id',
-        'starts_at',
-        'ends_at',
-        'is_active',
+        'started_at',
+        'expires_at',
         'auto_renew',
         'status',
-        'canceled_at',
+        'latest_payment_id',
+        'cancelled_at',
         'cancellation_reason',
     ];
 
@@ -37,11 +38,23 @@ final class UserSubscription extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'starts_at' => 'datetime',
-        'ends_at' => 'datetime',
-        'is_active' => 'boolean',
+        'started_at' => 'datetime',
+        'expires_at' => 'datetime',
         'auto_renew' => 'boolean',
-        'canceled_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+    ];
+    
+    /**
+     * The allowed status values.
+     * 
+     * @var array<string>
+     */
+    public static array $allowedStatuses = [
+        'active',
+        'expired',
+        'cancelled',
+        'suspended',
+        'pending',
     ];
 
     /**
@@ -53,15 +66,28 @@ final class UserSubscription extends Model
     }
 
     /**
-     * Get the subscription tier that owns the subscription.
+     * Get the subscription tier associated with the subscription.
      */
-    public function subscriptionTier(): BelongsTo
+    public function tier(): BelongsTo
     {
-        return $this->belongsTo(SubscriptionTier::class);
+        return $this->belongsTo(SubscriptionTier::class, 'subscription_tier_id');
     }
 
     /**
-     * Get the payments for the subscription.
+     * Get the latest payment associated with this subscription record.
+     * This is the payment that activated or last renewed this specific subscription instance.
+     */
+    public function latestPayment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class, 'latest_payment_id');
+    }
+
+    /**
+     * Get all payments that were made for this specific subscription instance (e.g. initial payment, renewals for THIS instance).
+     * This might be useful if a single UserSubscription record is updated upon renewal, rather than creating a new one.
+     * However, the current setup implies a new UserSubscription might be made or status simply extended.
+     * If payments are directly for *activating* or *renewing* this UserSubscription instance, they could be linked here.
+     * The existing payments() MorphMany implies UserSubscription can BE a payable item.
      */
     public function payments(): MorphMany
     {
@@ -69,13 +95,12 @@ final class UserSubscription extends Model
     }
 
     /**
-     * Check if the subscription is active.
+     * Check if the subscription is currently active.
      */
     public function isActive(): bool
     {
-        return $this->is_active && 
-               $this->status === 'active' && 
-               now()->between($this->starts_at, $this->ends_at);
+        return $this->status === 'active' && 
+               ($this->expires_at === null || Carbon::now()->lte($this->expires_at));
     }
 
     /**
@@ -83,7 +108,7 @@ final class UserSubscription extends Model
      */
     public function isCanceled(): bool
     {
-        return $this->status === 'canceled';
+        return $this->status === 'cancelled';
     }
 
     /**
@@ -91,29 +116,58 @@ final class UserSubscription extends Model
      */
     public function isExpired(): bool
     {
-        return $this->status === 'expired' || now()->isAfter($this->ends_at);
+        return $this->status === 'expired' || 
+               ($this->expires_at !== null && Carbon::now()->gt($this->expires_at));
     }
 
     /**
      * Check if the subscription should be auto-renewed.
+     * This is a placeholder for future logic.
      */
     public function shouldAutoRenew(): bool
     {
-        return $this->auto_renew && 
-               $this->is_active && 
-               !$this->isCanceled() && 
-               now()->diffInDays($this->ends_at) <= 3;
+        if (!$this->auto_renew || $this->status !== 'active' || $this->expires_at === null) {
+            return false;
+        }
+        return Carbon::now()->diffInDays($this->expires_at, false) <= 3 && Carbon::now()->diffInDays($this->expires_at, false) >= 0;
+    }
+    
+    /**
+     * Calculate the number of days remaining in the subscription.
+     */
+    public function daysRemaining(): int
+    {
+        if ($this->expires_at === null) {
+            return PHP_INT_MAX; // Infinite subscription
+        }
+        
+        $daysLeft = Carbon::now()->diffInDays($this->expires_at, false);
+        return (int)max(0, $daysLeft);
     }
 
     /**
-     * Scope a query to only include active subscriptions.
+     * Scope a query to only include currently active subscriptions.
      */
-    public function scopeActive($query)
+    public function scopeCurrentlyActive($query)
     {
-        return $query->where('is_active', true)
+        return $query->where('status', 'active')
+                     ->where(function ($q) {
+                         $q->whereNull('expires_at')
+                           ->orWhere('expires_at', '>=', Carbon::now());
+                     });
+    }
+    
+    /**
+     * Scope a query to find the currently active subscription for a specific user.
+     */
+    public function scopeCurrentlyActiveForUser($query, $userId)
+    {
+        return $query->where('user_id', $userId)
                      ->where('status', 'active')
-                     ->where('starts_at', '<=', now())
-                     ->where('ends_at', '>=', now());
+                     ->where(function ($q) {
+                         $q->whereNull('expires_at')
+                           ->orWhere('expires_at', '>=', Carbon::now());
+                     });
     }
 
     /**
@@ -122,6 +176,21 @@ final class UserSubscription extends Model
     public function scopeExpired($query)
     {
         return $query->where('status', 'expired')
-                     ->orWhere('ends_at', '<', now());
+                     ->orWhere(function ($q) {
+                         $q->whereNotNull('expires_at')
+                           ->where('expires_at', '<', Carbon::now());
+                     });
+    }
+
+    /**
+     * Scope a query to only include truly expired subscriptions.
+     */
+    public function scopeTrulyExpired($query)
+    {
+        return $query->where('status', 'expired')
+                     ->orWhere(function ($q) {
+                         $q->whereNotNull('expires_at')
+                           ->where('expires_at', '<', Carbon::now());
+                     });
     }
 }

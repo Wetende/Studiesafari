@@ -16,18 +16,16 @@ return new class extends Migration
         Schema::create('user_subscriptions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('subscription_tier_id')->constrained()->onDelete('cascade');
+            $table->foreignId('subscription_tier_id')->constrained();
             $table->timestamp('started_at');
             $table->timestamp('expires_at')->nullable();
-            $table->enum('status', ['active', 'expired', 'cancelled'])->default('active');
-            $table->foreignId('latest_payment_id')->nullable();
+            $table->boolean('auto_renew')->default(true);
+            $table->enum('status', ['active', 'expired', 'cancelled', 'suspended', 'pending'])->default('pending');
+            $table->foreignId('latest_payment_id')->nullable()->constrained('payments');
+            $table->timestamp('cancelled_at')->nullable();
+            $table->string('cancellation_reason')->nullable();
             $table->timestamps();
             $table->softDeletes();
-            
-            // Foreign key constraint added after payments table is created
-            if (Schema::hasTable('payments')) {
-                $table->foreign('latest_payment_id')->references('id')->on('payments')->onDelete('set null');
-            }
         });
     }
 

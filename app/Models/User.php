@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Cache; // For caching active subscription
+use Illuminate\Support\Facades\Log;
+use App\Models\Enrollment; // Added import
 
-final class User extends Authenticatable implements MustVerifyEmail
+final class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
@@ -26,10 +28,13 @@ final class User extends Authenticatable implements MustVerifyEmail
     protected $fillable = [
         'first_name',
         'last_name',
+        'name',
         'email',
         'password',
         'profile_picture_path',
         'phone_number',
+        'email_verified_at',
+        'phone_verified_at',
     ];
 
     /**
@@ -57,43 +62,11 @@ final class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Get the user's full name.
-     */
-    public function getNameAttribute(): string
-    {
-        return "{$this->first_name} {$this->last_name}";
-    }
-
-    /**
      * Get the roles that belong to the user.
      */
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class);
-    }
-
-    /**
-     * Get the student profile associated with the user.
-     */
-    public function studentProfile(): HasOne
-    {
-        return $this->hasOne(StudentProfile::class);
-    }
-
-    /**
-     * Get the teacher profile associated with the user.
-     */
-    public function teacherProfile(): HasOne
-    {
-        return $this->hasOne(TeacherProfile::class);
-    }
-
-    /**
-     * Get the parent profile associated with the user.
-     */
-    public function parentProfile(): HasOne
-    {
-        return $this->hasOne(ParentProfile::class);
     }
 
     /**
@@ -185,6 +158,14 @@ final class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Get the user's enrollments.
+     */
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    /**
      * Check if the user has a specific role.
      */
     public function hasRole(string $roleName): bool
@@ -222,5 +203,96 @@ final class User extends Authenticatable implements MustVerifyEmail
     public function isParent(): bool
     {
         return $this->hasRole('parent');
+    }
+
+    /**
+     * Get the user's currently active subscription.
+     * Uses Cache for performance within a single request lifecycle.
+     */
+    public function activeSubscription(): ?UserSubscription
+    {
+        return Cache::remember("user_{$this->id}_active_subscription", now()->addMinutes(1), function () {
+            return $this->subscriptions()->currentlyActive()->latest('started_at')->first();
+        });
+    }
+
+    /**
+     * Check if the user has an active subscription.
+     */
+    public function hasActiveSubscription(): bool
+    {
+        return $this->activeSubscription() !== null;
+    }
+
+    /**
+     * Get the tier of the user's currently active subscription.
+     */
+    public function activeSubscriptionTier(): ?SubscriptionTier
+    {
+        return $this->activeSubscription()?->tier;
+    }
+    
+    /**
+     * Count the number of currently active enrollments obtained via subscription.
+     */
+    public function countActiveSubscriptionEnrollments(): int
+    {
+        // Assuming an 'active' status on enrollments means status = 'active'
+        return $this->enrollments()
+                    ->where('access_type', 'subscription')
+                    ->where('status', 'active') // Check enrollment status
+                    ->count(); 
+    }
+
+    /**
+     * Check if the user is allowed to enroll in more courses based on subscription limit.
+     */
+    public function isEnrollmentAllowedByMaxCoursesLimit(): bool
+    {
+        $subscription = $this->activeSubscription();
+        
+        if (!$subscription) {
+            return false; // No active subscription
+        }
+        
+        $maxCourses = $subscription->tier->max_courses;
+        
+        if ($maxCourses === null) {
+            return true; // Unlimited courses allowed
+        }
+        
+        $currentCount = $this->countActiveSubscriptionEnrollments();
+        
+        return $currentCount < $maxCourses;
+    }
+
+    /**
+     * Check if the user can access a specific course via their subscription.
+     */
+    public function canAccessCourseViaSubscription(Course $course): bool
+    {
+        // If the course doesn't require a subscription, anyone can access
+        if (!$course->subscription_required) {
+            return true;
+        }
+        
+        // User must have an active subscription
+        $subscription = $this->activeSubscription();
+        if (!$subscription) {
+            return false;
+        }
+        
+        // If the course has a specific tier requirement, check that
+        if ($course->required_subscription_tier_id) {
+            $userTierId = $subscription->subscription_tier_id;
+            $requiredTierId = $course->required_subscription_tier_id;
+            
+            // The user's tier must be at least the required tier
+            // Assuming higher tier IDs are more premium - this logic might need adjustment
+            return $userTierId >= $requiredTierId;
+        }
+        
+        // Course requires subscription but no specific tier
+        return true;
     }
 }

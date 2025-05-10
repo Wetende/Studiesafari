@@ -21,6 +21,7 @@ return new class extends Migration
             $table->decimal('price', 10, 2);
             $table->integer('level'); // Used for hierarchy/access control
             $table->integer('duration_days')->comment('0 for unlimited/lifetime');
+            $table->integer('max_courses')->nullable()->comment('Maximum number of concurrent course enrollments allowed by this tier. Null for unlimited.');
             $table->json('features')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();

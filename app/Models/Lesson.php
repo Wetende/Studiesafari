@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Enums\LessonType;
+use App\Models\Assignment;
 
 final class Lesson extends Model
 {
@@ -22,15 +24,33 @@ final class Lesson extends Model
      */
     protected $fillable = [
         'course_id',
+        'course_section_id',
         'title',
         'slug',
-        'description',
-        'content',
-        'video_url',
-        'duration_in_minutes',
-        'is_free',
+        'lesson_type',
+        'order',
         'is_published',
-        'position',
+        'is_preview_allowed',
+        'unlock_date',
+        'unlock_after_purchase_days',
+        'short_description',
+        'content',
+        'lesson_duration',
+        'video_url',
+        'video_source',
+        'video_upload_path',
+        'video_embed_code',
+        'enable_p_in_p',
+        'enable_download',
+        'stream_url',
+        'stream_password',
+        'stream_start_time',
+        'stream_details',
+        'is_recorded',
+        'recording_url',
+        'quiz_id',
+        'assignment_id',
+        'instructions',
     ];
 
     /**
@@ -39,10 +59,16 @@ final class Lesson extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'duration_in_minutes' => 'integer',
-        'is_free' => 'boolean',
+        'lesson_type' => LessonType::class,
+        'order' => 'integer',
         'is_published' => 'boolean',
-        'position' => 'integer',
+        'is_preview_allowed' => 'boolean',
+        'unlock_date' => 'datetime',
+        'lesson_duration' => 'integer',
+        'enable_p_in_p' => 'boolean',
+        'enable_download' => 'boolean',
+        'stream_start_time' => 'datetime',
+        'is_recorded' => 'boolean',
     ];
 
     /**
@@ -91,9 +117,9 @@ final class Lesson extends Model
     public function getPreviousLesson()
     {
         return $this->course->lessons()
-            ->where('position', '<', $this->position)
+            ->where('order', '<', $this->order)
             ->where('is_published', true)
-            ->orderBy('position', 'desc')
+            ->orderBy('order', 'desc')
             ->first();
     }
 
@@ -103,9 +129,9 @@ final class Lesson extends Model
     public function getNextLesson()
     {
         return $this->course->lessons()
-            ->where('position', '>', $this->position)
+            ->where('order', '>', $this->order)
             ->where('is_published', true)
-            ->orderBy('position')
+            ->orderBy('order')
             ->first();
     }
 
@@ -122,6 +148,21 @@ final class Lesson extends Model
      */
     public function scopeFree($query)
     {
-        return $query->where('is_free', true);
+        return $query;
+    }
+
+    public function courseSection(): BelongsTo
+    {
+        return $this->belongsTo(CourseSection::class);
+    }
+
+    public function linkedQuiz(): BelongsTo
+    {
+        return $this->belongsTo(Quiz::class, 'quiz_id');
+    }
+
+    public function linkedAssignment(): BelongsTo
+    {
+        return $this->belongsTo(Assignment::class, 'assignment_id');
     }
 }

@@ -11,7 +11,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        $middleware->alias([
+            // Add other default or custom aliases here if any are present
+            // e.g., 'auth' => \App\Http\Middleware\Authenticate::class,
+            
+            'enrollment.check' => \App\Http\Middleware\EnsureUserIsEnrolled::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

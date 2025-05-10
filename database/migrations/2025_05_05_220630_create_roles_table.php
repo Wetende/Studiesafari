@@ -18,6 +18,7 @@ return new class extends Migration
             $table->id();
             $table->string('name')->unique();
             $table->string('display_name');
+            $table->boolean('is_default')->default(false);
             $table->timestamps();
         });
 

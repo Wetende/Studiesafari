@@ -20,6 +20,7 @@ final class Role extends Model
     protected $fillable = [
         'name',
         'display_name',
+        'is_default',
     ];
 
     /**
@@ -32,7 +33,7 @@ final class Role extends Model
     ];
 
     /**
-     * Get the users for the role.
+     * Get the users that belong to the role.
      */
     public function users(): BelongsToMany
     {
